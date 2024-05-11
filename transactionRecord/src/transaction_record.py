@@ -12,7 +12,7 @@ class TransactionRecord:
         self.expend_type = expend_type
 
     def __repr__(self):
-        return f"{self.date}, {self.amount}, note={self.note})"
+        return f"{self.date} 金额={self.amount}, note={self.note})"
 
     
 

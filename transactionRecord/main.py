@@ -38,7 +38,7 @@ def main():
     # 遍历字典的键值对
     for expend_type, value_list in dif_type_map.items():
         total_expense = sum(transaction.amount for transaction in value_list)
-        top_7 = heapq.nlargest(15, value_list, key=lambda _v: _v.amount)
+        top_7 = heapq.nlargest(50, value_list, key=lambda _v: _v.amount)
         num = 1
         for top in top_7:
             if num == 1:

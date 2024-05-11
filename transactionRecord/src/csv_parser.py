@@ -6,16 +6,14 @@ from datetime import datetime
 from .transaction_record import TransactionRecord
 
 def parse_zfb_csv(file_path):
-    # 交易号(0)、商家订单号、交易创建时间、付款时间(3)、最近修改时间、交易来源地、类型、交易对方(7)、商品名称、金额(9)、收/支、交易状态、服务费、成功退款(13)、备注(14)、资金状态
-    # 类型：将支付宝原来的即时到账、支付宝担保交易啥的，手动改成了 餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
-    # 收/支：有一项是不计收支，包括余额宝收益、转出银行卡、退款、基金买入卖出等
-    # 有退款的可以从成功退款列（index=13）计算
-    
-    # 如何做到分类统计支出？餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
-    # 餐饮关键字："餐饮"、"饭"、"厨房"、"食堂"、"辣子王"、
-    # 购物关键字：
-    # 出行关键字："打车"、
-    # 水电网费关键字：
+    '''
+    交易号(0)、商家订单号、交易创建时间、付款时间(3)、最近修改时间、交易来源地、类型、交易对方(7)、商品名称、金额(9)、收/支、交易状态、服务费、成功退款(13)、备注(14)、资金状态
+    类型：将支付宝原来的即时到账、支付宝担保交易啥的，手动改成了 餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
+    收/支：有一项是不计收支，包括余额宝收益、转出银行卡、退款、基金买入卖出等
+    有退款的可以从成功退款列（index=13）计算
+
+    如何做到分类统计支出？餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
+    '''
     transactions = []
     with open(file_path, 'r', encoding='gb18030') as csv_file:
         reader = csv.reader(csv_file)
@@ -32,8 +30,6 @@ def parse_zfb_csv(file_path):
                     continue
 
                 date = datetime.strptime(row[2].strip(), '%Y/%m/%d %H:%M')
-                if date < datetime(2024, 4, 1, 0, 0, 0):
-                    continue
                 note = 'Ali--' + row[7].strip() + '--' + row[8].strip()
                 refund = float(row[13].strip())
                 amount = float(row[9].strip()) - refund
@@ -62,8 +58,6 @@ def parse_wx_csv(file_path):
 
             try:
                 date = datetime.strptime(row[0].strip(), '%Y/%m/%d %H:%M')
-                if date < datetime(2024, 4, 1, 0, 0, 0):
-                    continue
                 note = 'WX--' + row[3].strip() + '--' + row[4].strip()
                 amount_str = row[6].strip()[1:]
                 amount = float(amount_str)
