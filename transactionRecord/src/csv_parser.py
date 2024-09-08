@@ -2,38 +2,47 @@
 
 import csv
 import traceback
+import re
+import locale
 from datetime import datetime
 from .transaction_record import TransactionRecord
 
-def parse_zfb_csv(file_path):
+def parse_zfb_csv(file_path, excel_name):
     '''
-    交易号(0)、商家订单号、交易创建时间、付款时间(3)、最近修改时间、交易来源地、类型、交易对方(7)、商品名称、金额(9)、收/支、交易状态、服务费、成功退款(13)、备注(14)、资金状态
-    类型：将支付宝原来的即时到账、支付宝担保交易啥的，手动改成了 餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
+    交易时间、交易分类（自己改的）、交易对方(2)、对方账号、商品说明、收/支(5)、金额(6)、收付款方式、交易状态
     收/支：有一项是不计收支，包括余额宝收益、转出银行卡、退款、基金买入卖出等
-    有退款的可以从成功退款列（index=13）计算
-
-    如何做到分类统计支出？餐饮、购物、大额支出、房租、水电网费、出行、医疗、其他
     '''
+    num = 0
     transactions = []
     with open(file_path, 'r', encoding='gb18030') as csv_file:
         reader = csv.reader(csv_file)
         for row in reader:
+            num += 1
             # 过滤前后几行与标题列
-            if any(cell == '' for cell in row):
-                continue
-            if "交易号" in row[0].strip():
+            if num <= 25:
                 continue
 
             try:
-                transaction_type = row[10].strip()
-                if transaction_type == "不计收支":
+                expend_type = row[1].strip()
+                if "亲友代付" in expend_type:
+                    # 过滤掉我Excel中给媳妇儿代付的
+                    continue
+                
+                transaction_type = row[5].strip()
+                if transaction_type != "支出" and "亲情卡" not in row[7].strip():
+                    # 保留媳妇儿Excel中使用亲情卡支付的交易
                     continue
 
-                date = datetime.strptime(row[2].strip(), '%Y/%m/%d %H:%M')
-                note = 'Ali--' + row[7].strip() + '--' + row[8].strip()
-                refund = float(row[13].strip())
-                amount = float(row[9].strip()) - refund
-                expend_type = row[6].strip()
+                tx_status = row[8].strip()
+                if tx_status != "交易成功":
+                    continue
+
+                date = str_to_date(row[0].strip())
+                note = excel_name + row[1].strip() + row[2].strip() + '--' + row[4].strip()
+                amount = float(row[6].strip())
+                if amount == 0:
+                    continue
+                
                 transaction = TransactionRecord(date, note, amount, transaction_type, expend_type)
                 transactions.append(transaction)
             except (ValueError, IndexError) as e:
@@ -44,27 +53,37 @@ def parse_zfb_csv(file_path):
                 
     return transactions
 
-def parse_wx_csv(file_path):
-    # 交易时间、类型（餐饮、购物等自定义的）、交易类型（微信自己添加的，不要）、交易对方、商品、收支、金额
+def parse_wx_csv(file_path, excel_name):
     transactions = []
+    num = 0
+    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
     with open(file_path, 'r', encoding='utf-8') as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
+            num += 1
             # 过滤前后几行与标题列
-            if any(cell == '' for cell in row):
+            if num <= 17:
                 continue
-            if "时间" in row[0].strip():
-                continue
-
+            
             try:
-                date = datetime.strptime(row[0].strip(), '%Y/%m/%d %H:%M')
-                note = 'WX--' + row[3].strip() + '--' + row[4].strip()
-                amount_str = row[6].strip()[1:]
-                amount = float(amount_str)
-                transaction_type = row[5].strip()
-                expend_type = row[1].strip()
-                if transaction_type != "/":
-                    transaction = TransactionRecord(date, note, amount, transaction_type, expend_type)
+                date = str_to_date(row[0].strip())
+                note = excel_name + row[2].strip() + '--' + row[3].strip()
+                amount_str = row[5].strip()[1:] #对字符串进行切片
+                amount = locale.atof(amount_str)
+                transaction_type = row[4].strip()
+                consume_type = row[1].strip()
+                if transaction_type == "支出":
+                    now_status = row[7].strip()
+                    if now_status == "已全额退款":
+                        continue
+                    
+                    # 处理 已退款(￥0.06) 计算最终花费金额
+                    match = re.search(r'￥(\d+(\.\d+)?)', now_status)
+                    if match:
+                         refund_amount = locale.atof(match.group(1))
+                         amount -= refund_amount
+
+                    transaction = TransactionRecord(date, note, amount, transaction_type, consume_type)
                     transactions.append(transaction)
             except (ValueError, IndexError) as e:
                 print(f"An error occurred: {e}")
@@ -73,3 +92,18 @@ def parse_wx_csv(file_path):
                 continue
                 
     return transactions
+
+def str_to_date(date_str):
+     # 定义两种可能的日期格式
+    formats = ['%Y/%m/%d %H:%M', '%Y-%m-%d %H:%M:%S']
+    
+    for fmt in formats:
+        try:
+            # 尝试将字符串转换为日期对象
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            # 如果格式不匹配，继续尝试下一种格式
+            continue
+    
+    # 如果所有格式都不匹配，抛出异常
+    raise ValueError(f"无法解析日期字符串: {date_str}")
