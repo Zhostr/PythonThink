@@ -21,7 +21,7 @@ class TransactionRecord:
         return self.consume_way == "亲属卡交易"
     
     def consume_type(self):
-        # 租房,大额支出,出行,餐饮,水电费,下馆子,购物,医疗,宠物,快递,衣服鞋子,美容美发,日用百货,其他
+        # 租房,大额支出,婚礼,出行,餐饮,水电费,下馆子,购物,医疗,宠物,快递,衣服鞋子,美容美发,日用百货,旅游,其他
         if "铁旅" in self.note or "去哪儿网" in self.note or "高德" in self.note or "交通" in self.note:
             return "出行"
         if "刀削面" in self.note or "餐饮" in self.note or "惠邻" in self.note or "麻辣烫" in self.note or "喜家德" in self.note:
@@ -36,7 +36,7 @@ class TransactionRecord:
             return "购物"
         if "美团" in self.note:
             return "餐饮"
-        # 补充宠物
+        # 补充宠物      
         return "其他"
 
     def to_list(self):
